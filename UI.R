@@ -1,21 +1,59 @@
+library(shiny)
+library(tidyverse)
+library(forecast)
+library(mice)
+library(zoo)
+library(lubridate)
+library(yfR)
+
+# Define UI for application
 ui <- 
   fluidPage(
-    titlePanel("Barley Yield"),
+    titlePanel("Stock Market Analysis"),
+    p("This app will allow users to analyse stock market data and provide insight on time series analysis of the selected stock"),
     sidebarLayout(
       sidebarPanel(
-        selectInput(inputId = "gen",  # Give the input a name "genotype"
-                    label = "1. Select genotype",  # Give the input a label to be displayed in the app
-                    choices = c("A" = "a","B" = "b","C" = "c","D" = "d","E" = "e","F" = "f","G" = "g","H" = "h"), selected = "a"),  # Create the choices that can be selected. e.g. Display "A" and link to value "a"
-        selectInput(inputId = "colour", 
-                    label = "2. Select histogram colour", 
-                    choices = c("blue","green","red","purple","grey"), selected = "grey"),
-        sliderInput(inputId = "bin", 
-                    label = "3. Select number of histogram bins", 
-                    min=1, max=25, value= c(10)),
-        textInput(inputId = "text", 
-                  label = "4. Enter some text to be displayed", "")
+        textInput(inputId = "ticker", 
+                  label = "1. Enter stock ticker symbol",
+                  value = "^KLSE"),
+        radioButtons(inputId = "ts_algo", 
+                    label = "2. Select preferred algorithm", 
+                    choices = c("ARIMA", "TBATS"), 
+                    selected = "ARIMA"),
+
+        dateRangeInput(inputId = 'dateRange',
+                      label = '3. Select date range for analysis',
+                      start = '2000-01-01', 
+                      end = Sys.Date(),
+                      format = 'yyyy-mm',
+                      startview = 'year')
       ),
-      mainPanel()
+      mainPanel(
+        tabsetPanel(type = "tabs",
+                    tabPanel("Plot", plotOutput("ts_plot")),
+                    tabPanel("Stock Summary",
+                            fluidRow(
+                              column(12, verbatimTextOutput("dateRangeText"))
+                            )
+                    ),
+                    tabPanel("Time-Series Analysis",
+                            fluidRow(
+                              column(12, 
+                                    plotOutput("seasonal_plot"))
+                            ),
+                            fluidRow(
+                              column(12,
+                                    div(style = "background-color: #77B254; color: white; font-size: 18px; padding: 10px; margin: 10px; border-radius: 5px;",
+                                        textOutput("seasonal_text")
+                                    )
+                              )
+                            ),
+                            fluidRow(
+                              column(12,
+                              plotOutput("trend_plot"))
+                            )
+                      )
+          )
+      )
     )
-  )
   )

@@ -5,35 +5,100 @@ library(zoo)
 library(lubridate)
 library(yfR)
 
-server = function(input, output) {
+server <- function(input, output) {
   
-  # Load data
-  my_ticker <- '^KLSE'
-  first_date <- input$first_date
-  last_date <- input$last_date
-  
-  df_yf <- yf_get(tickers = my_ticker, 
-                  first_date = first_date,
-                  last_date = last_date)
+  # Load data reactively with error handling
+  df_yf <- reactive({
+      yf_get(tickers = input$ticker, 
+             first_date = "2000-01-01",
+             last_date = Sys.Date())
+             })
   
   # Convert daily to monthly data
-  df = df_yf %>%
-    group_by(year(ref_date), month(ref_date)) %>%
-    summarise(price = mean(price_close))
+  df <- reactive({
+    df_yf() %>%
+      group_by(year = year(ref_date), month = month(ref_date)) %>%
+      summarise(price = mean(price_close, na.rm = TRUE))
+  })
   
-  df_ts = ts(df$price, start=c(2000,1), frequency=12)
+  # Create a zoo object (time series with Date index)
+  df_ts <- reactive({
+    ts(df()$price, start = c(min(df()$year), 1), frequency = 12)
+  })
   
   # Choose time series method
-  if (input$ts_algo == "ARIMA") {
-    x = forecast(auto.arima(df_ts))
-  } else {
-    x = forecast(tbats(df_ts))
-  }
+  forecasted_data <- reactive({
+      if (input$ts_algo == "TBATS") {
+        forecast(tbats(df_ts()))
+      } 
+      else {
+        forecast(auto.arima(df_ts()))
+      }
+    })
   
   # Plot data
-  output$ts_plot = plot(x, main = 'FBMKLCI Time Series Analysis using TBATS',
-                        ylab = 'Price', xlab = 'Date')
+  output$ts_plot <- renderPlot({
+    req(forecasted_data())
+    plot(forecasted_data(), 
+         main = paste(input$ticker, "Time Series Analysis Year '00 - '25"), 
+         ylab = 'Price', 
+         xlab = 'Date')
+  })
   
-  # KPI card
-  output$kpi_mom = diff(input$mom)
+  # Display the selected date range
+  output$dateRangeText <- renderText({
+    req(input$dateRange)
+    paste("Analysis Period:", format(input$dateRange[1], "%B %Y"),
+          "to", format(input$dateRange[2], "%B %Y"))
+  })
+
+  # Plot the seasonal data
+  output$seasonal_plot <- renderPlot({
+    # Create a seasonal data
+    seasonal_data <- decompose(df_ts())$seasonal
+
+    # Create seasonal data frame
+    seasonal_df <- data.frame(time = as.numeric(time(seasonal_data)),
+                                seasonal = as.numeric(seasonal_data)) %>%
+                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+    
+    # Find the time corresponding to the lowest point of the seasonal component
+    lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
+
+    autoplot(seasonal_data) +
+      ggtitle("Seasonal Decomposition") +
+      xlim(c(year(Sys.Date()) - 1, year(Sys.Date()))) +  # Adjust the x-axis limits
+      geom_vline(xintercept = lowest_time, color = "red", linetype = "dotted") +  # Add vertical line +
+      annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), label = "Lowest Point of Year\nBest entry point", vjust = -10) +  # Add text annotation
+      labs(x = "Time", y = "Seasonal Component") +
+      theme_minimal()
+  })
+
+  output$seasonal_text = renderText({
+    # Create a seasonal data
+    seasonal_data <- decompose(df_ts())$seasonal
+
+    # Create seasonal data frame
+    seasonal_df <- data.frame(time = as.numeric(time(seasonal_data)),
+                                seasonal = as.numeric(seasonal_data)) %>%
+                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+    
+    # Find the time corresponding to the lowest point of the seasonal component
+    lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
+
+    date = lowest_time
+    paste("The lowest point of the seasonal component occurs in the month of", month(round(lowest_time %% 12, 0), label = TRUE))
+  })
+
+  # Plot the trend data
+  output$trend_plot <- renderPlot({
+    # Create a trend data
+    trend_data <- decompose(df_ts())$trend
+    
+    autoplot(trend_data) +
+      geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+      ggtitle("Trend Decomposition") +
+      labs(x = "Time", y = "Trend Component") +
+      theme_minimal()
+  })
 }
