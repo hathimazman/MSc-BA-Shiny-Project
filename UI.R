@@ -10,7 +10,11 @@ library(yfR)
 ui <- 
   fluidPage(
     titlePanel("Stock Market Analysis"),
-    p("This app will allow users to analyse stock market data and provide insight on time series analysis of the selected stock"),
+    p("This dashboard will allow users to analyse stock market data using data from the past 25 years and provide insight on time series analysis of the selected stock"),
+    br(),
+    p("This data was sourced from Yahoo Finance using the yfR package \n The data is then converted to monthly data and analysed using the ARIMA and TBATS algorithms"),
+    br(),
+    p("Users can select the stock ticker symbol, the algorithm to use and the date range for analysis"),
     sidebarLayout(
       sidebarPanel(
         textInput(inputId = "ticker", 
