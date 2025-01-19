@@ -1,7 +1,6 @@
 library(tidyverse)
 library(forecast)
 library(mice)
-library(zoo)
 library(lubridate)
 library(yfR)
 
@@ -74,7 +73,8 @@ server <- function(input, output) {
       theme_minimal()
   })
 
-  output$seasonal_text = renderText({
+  # Seasonal text
+  output$seasonal_text <- renderText({
     # Create a seasonal data
     seasonal_data <- decompose(df_ts())$seasonal
 
@@ -86,8 +86,10 @@ server <- function(input, output) {
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
 
+    mth = round((lowest_time %% 1) * 12) 
+
     date = lowest_time
-    paste("The lowest point of the seasonal component occurs in the month of", month(round(lowest_time %% 12, 0), label = TRUE))
+    paste("The lowest point of the seasonal component occurs in the month of", month(mth, label = TRUE))
   })
 
   # Plot the trend data
@@ -100,5 +102,26 @@ server <- function(input, output) {
       ggtitle("Trend Decomposition") +
       labs(x = "Time", y = "Trend Component") +
       theme_minimal()
+  })
+  
+  # Trend Text
+  output$trend_text <- renderText({
+    # Create a trend data
+    trend_data <- decompose(df_ts())$trend
+
+    # Create trend data frame
+    trend_df <- data.frame(time = as.numeric(time(trend_data)),
+                                trend = as.numeric(trend_data)) %>%
+                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+    
+    # create a linear model
+    lm_model <- lm(trend ~ time, data = trend_df)
+    
+    if (lm_model$coefficients[2] > 0) {
+      paste("The trend is increasing")
+    } else {
+      paste("The trend is decreasing")
+    }
+    
   })
 }
