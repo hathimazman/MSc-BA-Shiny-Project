@@ -13,24 +13,7 @@ server <- function(input, output) {
            first_date = "2000-01-01",
            last_date = Sys.Date())
   })
-  
-  # Reactive DataFrame
-  df <- reactive({
-    df_yf() %>%
-      group_by(year = year(ref_date), month = month(ref_date)) %>%
-      summarise(
-        close = mean(price_close, na.rm = TRUE),
-        open = mean(price_open, na.rm = TRUE),
-        high = mean(price_high, na.rm = TRUE),
-        low = mean(price_low, na.rm = TRUE),
-        volume = mean(volume, na.rm = TRUE)
-      ) %>%
-      mutate(
-        date = as.Date(paste(year, month, "01", sep = "-")),
-        volume_legend = "Volume"
-      )
-  })
-  
+
   # KPI Calculation
   current_price <- reactive({
     tail(df_yf()$price_close, 1)
@@ -104,6 +87,25 @@ server <- function(input, output) {
       )
     )
   })
+  
+  # Reactive DataFrame
+  df <- reactive({
+    df_yf() %>%
+      group_by(year = year(ref_date), month = month(ref_date)) %>%
+      summarise(
+        close = mean(price_close, na.rm = TRUE),
+        open = mean(price_open, na.rm = TRUE),
+        high = mean(price_high, na.rm = TRUE),
+        low = mean(price_low, na.rm = TRUE),
+        volume = mean(volume, na.rm = TRUE)
+      ) %>%
+      mutate(
+        date = as.Date(paste(year, month, "01", sep = "-")),
+        volume_legend = "Volume"
+      )
+  })
+  
+  
   
   # Reactive Time Series
   df_ts <- reactive({
