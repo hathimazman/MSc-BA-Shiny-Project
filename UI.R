@@ -9,6 +9,11 @@ library(plotly)
 # Define UI for application
 ui <- 
   fluidPage(
+    tags$style(HTML("
+      body {
+        background-color: #F9F7F7;
+      }
+    ")),
     div(style = "background-color: #72383D; color: white; padding: 15px; margin: 10px; border-radius: 5px;",
         titlePanel("Stock Market Analysis Dashboard 2000-2025"),
     p("This dashboard will allow users to analyse stock market data using data from the past 25 years and provide insight on time series analysis of the selected stock."),
@@ -48,16 +53,18 @@ ui <-
       mainPanel(
         tabsetPanel(type = "tabs",
                     tabPanel("Plot", 
-                            fluidRow(
-                              column(12, uiOutput('kpi_cards')),
-                              column(12, plotlyOutput("ts_plot"))
-                            ),
-                            fluidRow(
-                              column(12,plotlyOutput("volume_plot"))
-                            ),
-                            fluidRow(
-                              column(12,verbatimTextOutput("dateRangeText"))
-                            )
+                             fluidRow(
+                               column(12,verbatimTextOutput("dateRangeText"))
+                             ),
+                             fluidRow(
+                               column(12, uiOutput('kpi_cards'))
+                             ),
+                             fluidRow(
+                               column(12, plotlyOutput("ts_plot"))
+                             ),
+                             fluidRow(
+                               column(12,plotlyOutput("volume_plot"))
+                             )
                     ),
                     tabPanel("Time-Series Analysis",
                             fluidRow(
