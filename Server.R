@@ -3,6 +3,7 @@ library(forecast)
 library(mice)
 library(lubridate)
 library(yfR)
+library(plotly)
 
 server <- function(input, output) {
   
@@ -13,36 +14,149 @@ server <- function(input, output) {
              last_date = Sys.Date())
              })
   
-  # Convert daily to monthly data
+  # Reactive DataFrame
   df <- reactive({
     df_yf() %>%
       group_by(year = year(ref_date), month = month(ref_date)) %>%
-      summarise(price = mean(price_close, na.rm = TRUE))
+      summarise(
+        close = mean(price_close, na.rm = TRUE),
+        open = mean(price_open, na.rm = TRUE),
+        high = mean(price_high, na.rm = TRUE),
+        low = mean(price_low, na.rm = TRUE),
+        volume = mean(volume, na.rm = TRUE)
+      ) %>%
+      mutate(
+        date = as.Date(paste(year, month, "01", sep = "-")),
+        volume_legend = "Volume"
+      )
   })
-  
-  # Create a zoo object (time series with Date index)
+
+  # Reactive Time Series
   df_ts <- reactive({
-    ts(df()$price, start = c(min(df()$year), 1), frequency = 12)
+    ts(df()$close, start = c(min(df()$year), 1), frequency = 12)
   })
-  
-  # Choose time series method
-  forecasted_data <- reactive({
-      if (input$ts_algo == "TBATS") {
-        forecast(tbats(df_ts()))
-      } 
-      else {
-        forecast(auto.arima(df_ts()))
-      }
-    })
-  
-  # Plot data
-  output$ts_plot <- renderPlot({
-    req(forecasted_data())
-    plot(forecasted_data(), 
-         main = paste(input$ticker, "Time Series Analysis Year '00 - '25"), 
-         ylab = 'Price', 
-         xlab = 'Date')
+
+  # Reactive Forecast
+  forecasted <- reactive({
+    if (input$ts_algo == "TBATS") {
+      forecast(tbats(df_ts()))
+    } else {
+      forecast(auto.arima(df_ts()))
+    }
   })
+
+  # Forecast Data Frame
+  forecast_data <- reactive({
+    data.frame(
+      date = seq(max(df()$date) + months(1), by = "month", length.out = 12),
+      forecast = forecasted()$mean,
+      lower_80 = forecasted()$lower[, 1],
+      upper_80 = forecasted()$upper[, 1],
+      lower_95 = forecasted()$lower[, 2],
+      upper_95 = forecasted()$upper[, 2]
+    )
+  })
+
+  # Plot Data
+  output$ts_plot <- renderPlotly({
+    p <- ggplot() +
+      # Candlestick chart (price data)
+      geom_segment(
+        data = df(),
+        aes(x = date, xend = date, y = low, yend = high),
+        color = "black",
+        alpha = 0.5
+      ) +
+      geom_rect(
+        data = df(),
+        aes(
+          xmin = date - 10,
+          xmax = date + 10,
+          ymin = pmin(open, close),
+          ymax = pmax(open, close),
+          fill = ifelse(close >= open, "bullish", "bearish")
+        )
+      ) +
+      # Forecast lines
+      geom_line(
+        data = forecast_data(),
+        aes(x = date, y = forecast),
+        color = "blue",
+        linetype = "dotted"
+      ) +
+      geom_ribbon(
+        data = forecast_data(),
+        aes(x = date, ymin = lower_95, ymax = upper_95),
+        fill = "blue",
+        alpha = 0.1
+      ) +
+      geom_ribbon(
+        data = forecast_data(),
+        aes(x = date, ymin = lower_80, ymax = upper_80),
+        fill = "blue",
+        alpha = 0.2
+      ) +
+      # Customizations
+      scale_fill_manual(
+        values = c(bullish = "green", bearish = "red")
+      ) +
+      scale_y_continuous(
+        name = "Price",  # Keep the label "Price"
+        expand = expansion(mult = c(0.05, 0.05))  # Allow some padding for dynamic scaling
+      ) +
+      scale_x_date(
+        name = "Date",
+        limits = as.Date(c(input$dateRange[1], input$dateRange[2])),  # Set x-axis limits
+        date_breaks = "6 month",  # Optional: specify date breaks
+        date_labels = "%b %Y"     # Optional: specify date format
+      ) +
+      labs(
+        title = "Monthly Candlestick Chart with Forecast",
+        x = "none"
+      ) +
+      theme_minimal() +
+      theme(
+        legend.position = "none",  # This hides the legend
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+      ) +
+      guides(fill = "none")  # Explicitly remove the fill legend
+    
+    # Return interactive plot
+    plotly::ggplotly(p)
+  })
+
+  # Volume Plot
+  output$volume_plot <- renderPlotly({
+    p <- ggplot() +
+      geom_col(
+        data = df(),
+        aes(x = date, y = volume),
+        fill = "grey",
+        alpha = 0.5
+      ) +
+      scale_y_continuous(
+        name = "Volume"
+        ) +
+      scale_x_date(
+        name = "Date",
+        limits = as.Date(c(input$dateRange[1], input$dateRange[2])),
+        date_breaks = "6 month",
+        date_labels = "%b %Y"
+      ) +
+      labs(
+        title = "Monthly Volume Chart",
+        x = "Date"
+      ) +
+      theme_minimal() +
+      theme(
+        legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+      )
+    
+    # Return interactive plot
+    plotly::ggplotly(p)
+  })
+
   
   # Display the selected date range
   output$dateRangeText <- renderText({
@@ -118,9 +232,9 @@ server <- function(input, output) {
     lm_model <- lm(trend ~ time, data = trend_df)
     
     if (lm_model$coefficients[2] > 0) {
-      paste("The trend is increasing")
+      paste("The monthly trend is increasing")
     } else {
-      paste("The trend is decreasing")
+      paste("The monthly trend is decreasing")
     }
     
   })

@@ -4,6 +4,7 @@ library(forecast)
 library(mice)
 library(lubridate)
 library(yfR)
+library(plotly)
 
 # Define UI for application
 ui <- 
@@ -28,7 +29,7 @@ ui <-
         dateRangeInput(inputId = 'dateRange',
                       label = '3. Select date range for analysis',
                       start = '2000-01-01', 
-                      end = Sys.Date(),
+                      end = Sys.Date() + 365,
                       format = 'yyyy-mm',
                       startview = 'year'),
         br(),
@@ -48,7 +49,10 @@ ui <-
         tabsetPanel(type = "tabs",
                     tabPanel("Plot", 
                             fluidRow(
-                              column(12, plotOutput("ts_plot"))
+                              column(12, plotlyOutput("ts_plot"))
+                            ),
+                            fluidRow(
+                              column(12,plotlyOutput("volume_plot"))
                             ),
                             fluidRow(
                               column(12,verbatimTextOutput("dateRangeText"))
