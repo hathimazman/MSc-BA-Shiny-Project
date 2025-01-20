@@ -9,10 +9,10 @@ server <- function(input, output) {
   
   # Load data reactively with error handling
   df_yf <- reactive({
-      yf_get(tickers = input$ticker, 
-             first_date = "2000-01-01",
-             last_date = Sys.Date())
-             })
+    yf_get(tickers = input$ticker, 
+           first_date = "2000-01-01",
+           last_date = Sys.Date())
+  })
   
   # Reactive DataFrame
   df <- reactive({
@@ -30,12 +30,67 @@ server <- function(input, output) {
         volume_legend = "Volume"
       )
   })
-
+  
+  # KPI Calculation
+  current_price <- reactive({
+    tail(df()$close, 1)
+  })
+  
+  daily_change <- reactive({
+    if (nrow(df()) > 1) {
+      tail(df()$close, 1) - tail(df()$close, 2)[1]
+    } else {
+      NA
+    }
+  })
+  
+  daily_change_percent <- reactive({
+    if (nrow(df()) > 1) {
+      (daily_change() / tail(df()$close, 2)[1]) * 100
+    } else {
+      NA
+    }
+  })
+  
+  daily_volume <- reactive({
+    tail(df()$volume, 1)
+  })
+  
+  # KPI Card
+  output$kpi_cards <- renderUI({
+    fluidRow(
+      column(3, 
+             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+                 h4("Current Price"),
+                 h3(paste0("$", round(current_price(), 2)))
+             )
+      ),
+      column(3, 
+             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+                 h4("Daily Change"),
+                 h3(paste0("$", round(daily_change(), 2)))
+             )
+      ),
+      column(3, 
+             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+                 h4("Daily Change (%)"),
+                 h3(paste0(round(daily_change_percent(), 2), "%"))
+             )
+      ),
+      column(3, 
+             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+                 h4("Daily Volume"),
+                 h3(format(daily_volume(), big.mark = ","))
+             )
+      )
+    )
+  })
+  
   # Reactive Time Series
   df_ts <- reactive({
     ts(df()$close, start = c(min(df()$year), 1), frequency = 12)
   })
-
+  
   # Reactive Forecast
   forecasted <- reactive({
     if (input$ts_algo == "TBATS") {
@@ -44,10 +99,10 @@ server <- function(input, output) {
       forecast(auto.arima(df_ts()))
     }
   })
-
+  
   # Forecast Data Frame
   forecast_data <- reactive({
-    data.frame(
+    forecast_df <- data.frame(
       date = seq(max(df()$date) + months(1), by = "month", length.out = 12),
       forecast = forecasted()$mean,
       lower_80 = forecasted()$lower[, 1],
@@ -55,8 +110,10 @@ server <- function(input, output) {
       lower_95 = forecasted()$lower[, 2],
       upper_95 = forecasted()$upper[, 2]
     )
+    
+    forecast_data <- forecast_df %>% arrange(date) %>% distinct(date, .keep_all = TRUE)
   })
-
+  
   # Plot Data
   output$ts_plot <- renderPlotly({
     p <- ggplot() +
@@ -124,7 +181,7 @@ server <- function(input, output) {
     # Return interactive plot
     plotly::ggplotly(p)
   })
-
+  
   # Volume Plot
   output$volume_plot <- renderPlotly({
     p <- ggplot() +
@@ -136,7 +193,7 @@ server <- function(input, output) {
       ) +
       scale_y_continuous(
         name = "Volume"
-        ) +
+      ) +
       scale_x_date(
         name = "Date",
         limits = as.Date(c(input$dateRange[1], input$dateRange[2])),
@@ -156,7 +213,6 @@ server <- function(input, output) {
     # Return interactive plot
     plotly::ggplotly(p)
   })
-
   
   # Display the selected date range
   output$dateRangeText <- renderText({
@@ -164,20 +220,20 @@ server <- function(input, output) {
     paste("Analysis Period:", format(input$dateRange[1], "%B %Y"),
           "to", format(input$dateRange[2], "%B %Y"))
   })
-
+  
   # Plot the seasonal data
   output$seasonal_plot <- renderPlot({
     # Create a seasonal data
     seasonal_data <- decompose(df_ts())$seasonal
-
+    
     # Create seasonal data frame
     seasonal_df <- data.frame(time = as.numeric(time(seasonal_data)),
-                                seasonal = as.numeric(seasonal_data)) %>%
-                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+                              seasonal = as.numeric(seasonal_data)) %>%
+      filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
     
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
-
+    
     autoplot(seasonal_data) +
       ggtitle("Seasonal Decomposition for the past 1 year") +
       xlim(c(year(Sys.Date()) - 1, year(Sys.Date()))) +  # Adjust the x-axis limits
@@ -186,26 +242,26 @@ server <- function(input, output) {
       labs(x = "Time", y = "Seasonal Component") +
       theme_minimal()
   })
-
+  
   # Seasonal text
   output$seasonal_text <- renderText({
     # Create a seasonal data
     seasonal_data <- decompose(df_ts())$seasonal
-
+    
     # Create seasonal data frame
     seasonal_df <- data.frame(time = as.numeric(time(seasonal_data)),
-                                seasonal = as.numeric(seasonal_data)) %>%
-                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+                              seasonal = as.numeric(seasonal_data)) %>%
+      filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
     
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
-
+    
     mth = round((lowest_time %% 1) * 12) 
-
+    
     date = lowest_time
     paste("The lowest point of the seasonal component occurs in the month of", month(mth, label = TRUE))
   })
-
+  
   # Plot the trend data
   output$trend_plot <- renderPlot({
     # Create a trend data
@@ -222,11 +278,11 @@ server <- function(input, output) {
   output$trend_text <- renderText({
     # Create a trend data
     trend_data <- decompose(df_ts())$trend
-
+    
     # Create trend data frame
     trend_df <- data.frame(time = as.numeric(time(trend_data)),
-                                trend = as.numeric(trend_data)) %>%
-                                filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+                           trend = as.numeric(trend_data)) %>%
+      filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
     
     # create a linear model
     lm_model <- lm(trend ~ time, data = trend_df)
