@@ -179,7 +179,7 @@ server <- function(input, output) {
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
 
     autoplot(seasonal_data) +
-      ggtitle("Seasonal Decomposition") +
+      ggtitle("Seasonal Decomposition for the past 1 year") +
       xlim(c(year(Sys.Date()) - 1, year(Sys.Date()))) +  # Adjust the x-axis limits
       geom_vline(xintercept = lowest_time, color = "red", linetype = "dotted") +  # Add vertical line +
       annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), label = "Lowest Point of Year\nBest entry point", vjust = -10) +  # Add text annotation
@@ -214,7 +214,7 @@ server <- function(input, output) {
     autoplot(trend_data) +
       geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
       ggtitle("Trend Decomposition") +
-      labs(x = "Time", y = "Trend Component") +
+      labs(x = "Time", y = "Trend Component Since 2000") +
       theme_minimal()
   })
   
