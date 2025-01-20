@@ -49,6 +49,7 @@ ui <-
         tabsetPanel(type = "tabs",
                     tabPanel("Plot", 
                             fluidRow(
+                              column(12, uiOutput('kpi_cards')),
                               column(12, plotlyOutput("ts_plot"))
                             ),
                             fluidRow(
