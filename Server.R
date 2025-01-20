@@ -33,13 +33,13 @@ server <- function(input, output) {
   
   # KPI Calculation
   current_price <- reactive({
-    tail(df()$close, 1)
+    tail(df_yf()$price_close, 1)
   })
   
   daily_change <- reactive({
-    if (nrow(df()) > 1) {
-      last_close <- tail(df()$close, 1)
-      previous_close <- tail(df()$close, 2)[1]
+    if (nrow(df_yf()) > 1) {
+      last_close <- tail(df_yf()$price_close, 1)
+      previous_close <- tail(df_yf()$price_close, 2)[1]
       return(last_close - previous_close)
     } else {
       return(NA)
@@ -47,8 +47,8 @@ server <- function(input, output) {
   })
   
   daily_change_percent <- reactive({
-    if (nrow(df()) > 1) {
-      (daily_change() / tail(df()$close, 2)[1]) * 100
+    if (nrow(df_yf()) > 1) {
+      (daily_change() / tail(df_yf()$price_close, 2)[1]) * 100
     } else {
       NA
     }
@@ -59,14 +59,13 @@ server <- function(input, output) {
   })
   
   ytd_performance <- reactive({
+    if(nrow(df_yf()) > 1) {
     first_day_of_year <- as.Date(paste0(year(Sys.Date()), "-01-01"))
-    ytd_close <- df() %>% filter(date >= first_day_of_year) %>% select(close)
-    
-    if (nrow(ytd_close) > 0) {
-      ytd_start_price <- ytd_close$close[1]
-      current_price <- tail(df()$close, 1)
-      ytd_change <- (current_price - ytd_start_price) / ytd_start_price * 100
-      return(round(ytd_change, 2))
+    ytd_close = df_yf() %>% filter(ref_date >= first_day_of_year) %>% select(ref_date, price_close)
+    ytd_start_price = ytd_close$price_close[1]
+    current_price = tail(df_yf()$price_close, 1)
+    ytd_change = (current_price - ytd_start_price) / ytd_start_price * 100
+    return(round(ytd_change,2))
     } else {
       return(NA)
     }
@@ -84,7 +83,7 @@ server <- function(input, output) {
       column(3, 
              div(style = paste0("background-color: ",
                                 ifelse(daily_change() < 0, "red", "green"),
-                                "; padding: 10px; border-radius: 5px;"),
+                                "; padding: 10px; border-radius: 5px; color: white;"),
                  h4("Latest Change"),
                  h3(paste0(round(daily_change(), 2), " (", round(daily_change_percent(), 2), "%)"))
              )
@@ -96,7 +95,9 @@ server <- function(input, output) {
              )
       ),
       column(3, 
-             div(style = "background-color: #112D4E; padding: 10px; border-radius: 5px; color: white;",
+             div(style = paste0("background-color: ",
+                 ifelse(ytd_performance() < 0, "red", "green"),
+                 "; padding: 10px; border-radius: 5px; color: white;"),
                  h4("YTD Performance"),
                  h3(paste0(round(ytd_performance(), 2), "%"))
              )
