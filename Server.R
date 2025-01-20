@@ -38,9 +38,11 @@ server <- function(input, output) {
   
   daily_change <- reactive({
     if (nrow(df()) > 1) {
-      tail(df()$close, 1) - tail(df()$close, 2)[1]
+      last_close <- tail(df()$close, 1)
+      previous_close <- tail(df()$close, 2)[1]
+      return(last_close - previous_close)
     } else {
-      NA
+      return(NA)
     }
   })
   
@@ -56,31 +58,47 @@ server <- function(input, output) {
     tail(df()$volume, 1)
   })
   
+  ytd_performance <- reactive({
+    first_day_of_year <- as.Date(paste0(year(Sys.Date()), "-01-01"))
+    ytd_close <- df() %>% filter(date >= first_day_of_year) %>% select(close)
+    
+    if (nrow(ytd_close) > 0) {
+      ytd_start_price <- ytd_close$close[1]
+      current_price <- tail(df()$close, 1)
+      ytd_change <- (current_price - ytd_start_price) / ytd_start_price * 100
+      return(round(ytd_change, 2))
+    } else {
+      return(NA)
+    }
+  })
+  
   # KPI Card
   output$kpi_cards <- renderUI({
     fluidRow(
       column(3, 
-             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+             div(style = "background-color: #112D4E; padding: 10px; border-radius: 5px; color: white;",
                  h4("Current Price"),
                  h3(paste0("$", round(current_price(), 2)))
              )
       ),
       column(3, 
-             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+             div(style = paste0("background-color: ",
+                                ifelse(daily_change() < 0, "red", "green"),
+                                "; padding: 10px; border-radius: 5px;"),
                  h4("Daily Change"),
-                 h3(paste0("$", round(daily_change(), 2)))
+                 h3(paste0(round(daily_change(), 2), " (", round(daily_change_percent(), 2), "%)"))
              )
       ),
       column(3, 
-             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
-                 h4("Daily Change (%)"),
-                 h3(paste0(round(daily_change_percent(), 2), "%"))
-             )
-      ),
-      column(3, 
-             div(style = "background-color: #D2DCE6; padding: 10px; border-radius: 5px;",
+             div(style = "background-color: #112D4E; padding: 10px; border-radius: 5px; color: white;",
                  h4("Daily Volume"),
                  h3(format(daily_volume(), big.mark = ","))
+             )
+      ),
+      column(3, 
+             div(style = "background-color: #112D4E; padding: 10px; border-radius: 5px; color: white;",
+                 h4("YTD Performance"),
+                 h3(paste0(round(ytd_performance(), 2), "%"))
              )
       )
     )
