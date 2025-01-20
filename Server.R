@@ -85,13 +85,13 @@ server <- function(input, output) {
              div(style = paste0("background-color: ",
                                 ifelse(daily_change() < 0, "red", "green"),
                                 "; padding: 10px; border-radius: 5px;"),
-                 h4("Daily Change"),
+                 h4("Latest Change"),
                  h3(paste0(round(daily_change(), 2), " (", round(daily_change_percent(), 2), "%)"))
              )
       ),
       column(3, 
              div(style = "background-color: #112D4E; padding: 10px; border-radius: 5px; color: white;",
-                 h4("Daily Volume"),
+                 h4("Latest Volume"),
                  h3(format(daily_volume(), big.mark = ","))
              )
       ),
@@ -142,6 +142,7 @@ server <- function(input, output) {
         color = "black",
         alpha = 0.5
       ) +
+      # Candlestick chart (price data)
       geom_rect(
         data = df(),
         aes(
@@ -159,12 +160,14 @@ server <- function(input, output) {
         color = "blue",
         linetype = "dotted"
       ) +
+      # Cofidence Interval 95% ribbons
       geom_ribbon(
         data = forecast_data(),
         aes(x = date, ymin = lower_95, ymax = upper_95),
         fill = "blue",
         alpha = 0.1
       ) +
+      # Cofidence Interval 80% ribbons
       geom_ribbon(
         data = forecast_data(),
         aes(x = date, ymin = lower_80, ymax = upper_80),
@@ -177,13 +180,13 @@ server <- function(input, output) {
       ) +
       scale_y_continuous(
         name = "Price",  # Keep the label "Price"
-        expand = expansion(mult = c(0.05, 0.05))  # Allow some padding for dynamic scaling
+        expand = expansion(mult = c(0.05, 0.05))  
       ) +
       scale_x_date(
         name = "Date",
-        limits = as.Date(c(input$dateRange[1], input$dateRange[2])),  # Set x-axis limits
-        date_breaks = "6 month",  # Optional: specify date breaks
-        date_labels = "%b %Y"     # Optional: specify date format
+        limits = as.Date(c(input$dateRange[1], input$dateRange[2])),  
+        date_breaks = "6 month",  
+        date_labels = "%b %Y"     
       ) +
       labs(
         title = "Monthly Candlestick Chart with Forecast",
@@ -202,26 +205,32 @@ server <- function(input, output) {
   
   # Volume Plot
   output$volume_plot <- renderPlotly({
+    # Create a volume plot
     p <- ggplot() +
+      # Volume bar chart
       geom_col(
         data = df(),
         aes(x = date, y = volume),
         fill = "grey",
         alpha = 0.5
       ) +
+      # Adjust y axis
       scale_y_continuous(
         name = "Volume"
       ) +
+      # Set x-axis limits
       scale_x_date(
         name = "Date",
         limits = as.Date(c(input$dateRange[1], input$dateRange[2])),
         date_breaks = "6 month",
         date_labels = "%b %Y"
       ) +
+      # Additional customizations
       labs(
         title = "Monthly Volume Chart",
         x = "Date"
       ) +
+      # Theme
       theme_minimal() +
       theme(
         legend.position = "none",
@@ -252,6 +261,7 @@ server <- function(input, output) {
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
     
+    # Plot the seasonal data
     autoplot(seasonal_data) +
       ggtitle("Seasonal Decomposition for the past 1 year") +
       xlim(c(year(Sys.Date()) - 1, year(Sys.Date()))) +  # Adjust the x-axis limits
@@ -274,9 +284,11 @@ server <- function(input, output) {
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
     
+    # Extract the month from the lowest time
     mth = round((lowest_time %% 1) * 12) 
-    
     date = lowest_time
+
+    # Create text
     paste("The lowest point of the seasonal component occurs in the month of", month(mth, label = TRUE))
   })
   
@@ -284,12 +296,30 @@ server <- function(input, output) {
   output$trend_plot <- renderPlot({
     # Create a trend data
     trend_data <- decompose(df_ts())$trend
+
+    # Create trend data frame
+    trend_df <- data.frame(time = as.numeric(time(trend_data)),
+                           trend = as.numeric(trend_data)) %>%
+      filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
     
-    autoplot(trend_data) +
-      geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
-      ggtitle("Trend Decomposition") +
-      labs(x = "Time", y = "Trend Component Since 2000") +
+    # Create a linear model
+    lm_model <- lm(trend ~ time, data = trend_df)
+
+    # Create plotting based on trend direction
+    if (lm_model$coefficients[2] > 0) {
+      autoplot(trend_data) +
+      geom_smooth(method = "lm", se = FALSE, color = "green", linetype = "dashed") +
+      ggtitle("Trend Decomposition Since 2000") +
+      labs(x = "Time", y = "Trend Component") +
       theme_minimal()
+    } else {
+      autoplot(trend_data) +
+      geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+      ggtitle("Trend Decomposition Since 2000") +
+      labs(x = "Time", y = "Trend Component") +
+      theme_minimal()
+    }
+    
   })
   
   # Trend Text
@@ -305,10 +335,11 @@ server <- function(input, output) {
     # create a linear model
     lm_model <- lm(trend ~ time, data = trend_df)
     
+    # Create text based on trend direction
     if (lm_model$coefficients[2] > 0) {
-      paste("The monthly trend is increasing")
+      paste("The price trend since 2000 is increasing")
     } else {
-      paste("The monthly trend is decreasing")
+      paste("The price trend since 2000 is decreasing")
     }
     
   })
