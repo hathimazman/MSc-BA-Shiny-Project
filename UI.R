@@ -22,9 +22,10 @@ ui <-
     ),
     sidebarLayout(
       sidebarPanel(
-        textInput(inputId = "ticker", 
+        selectInput(inputId = "ticker", 
                   label = "1. Enter stock ticker symbol",
-                  value = "^KLSE"),
+                  choices = c('^KLSE','^NDX','^GSPC','^HSI','^N225','^DJI'),
+                  selected = "^KLSE"),
         radioButtons(inputId = "ts_algo", 
                     label = "2. Select preferred algorithm", 
                     choices = c("ARIMA", "TBATS"), 
