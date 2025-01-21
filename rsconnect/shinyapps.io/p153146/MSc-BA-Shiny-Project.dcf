@@ -1,0 +1,13 @@
+name: MSc-BA-Shiny-Project
+title: MSc-BA-Shiny-Project
+username: p153146
+account: p153146
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 13763584
+bundleId: 9674972
+url: https://p153146.shinyapps.io/MSc-BA-Shiny-Project/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md|Server.R|test.R|UI.R
