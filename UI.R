@@ -34,7 +34,7 @@ ui <-
         dateRangeInput(inputId = 'dateRange',
                       label = '3. Select date range for analysis',
                       start = '2000-01-01', 
-                      end = Sys.Date() + 365,
+                      end = Sys.Date(),
                       format = 'yyyy-mm',
                       startview = 'year'),
         br(),
