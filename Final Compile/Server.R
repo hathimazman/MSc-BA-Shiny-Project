@@ -110,20 +110,21 @@ server <- function(input, output) {
   df_ts <- reactive({
     ts(df()$close, start = c(min(df()$year), 1), frequency = 12)
   })
+
   
   # Reactive Forecast
   forecasted <- reactive({
     if (input$ts_algo == "TBATS") {
-      forecast(tbats(df_ts()))
+      forecast(tbats(df_ts()), h = input$integer)
     } else {
-      forecast(auto.arima(df_ts()))
+      forecast(auto.arima(df_ts()), h = input$integer)
     }
   })
   
   # Forecast Data Frame
   forecast_data <- reactive({
     forecast_df <- data.frame(
-      date = seq(max(df()$date) + months(1), by = "month", length.out = 12),
+      date = seq(max(df()$date) + months(1), by = "month", length.out = input$integer),
       forecast = forecasted()$mean,
       lower_80 = forecasted()$lower[, 1],
       upper_80 = forecasted()$upper[, 1],
@@ -243,47 +244,46 @@ server <- function(input, output) {
     plotly::ggplotly(p)
   })
   
-  # Display the selected date range
-  output$dateRangeText <- renderText({
-    req(input$dateRange)
-    paste("Analysis Period:", format(input$dateRange[1], "%B %Y"),
-          "to", format(input$dateRange[2], "%B %Y"))
-  })
   
   # Plot the seasonal data
   output$seasonal_plot <- renderPlotly({
-    req(nrow(df_ts()) > 0)  # Ensure df_ts() has data
+    # Create a seasonal data
     seasonal_data <- decompose(df_ts())$seasonal
     
     # Create seasonal data frame
     seasonal_df <- data.frame(
       time = time(seasonal_data),
       seasonal = as.numeric(seasonal_data)
-    )
+    ) %>% filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
     
     # Create a date sequence for the x-axis
-    seasonal_df$date <- seq(from = as.Date("2000-01-01"), by = "month", length.out = length(seasonal_df$seasonal))
+    last_year <- year(Sys.Date())-1
+    seasonal_df$date <- seq(from = as.Date(paste0(last_year, "-01-01")), 
+                          by = "month", 
+                          length.out = length(seasonal_df$seasonal))
     
     # Find the time corresponding to the lowest point of the seasonal component
     lowest_time <- seasonal_df$date[which.min(seasonal_df$seasonal)]
     
     # Plot the seasonal data
-    s <- ggplot() +
+    p <- ggplot() +
       geom_line(
         data = seasonal_df,
         aes(x = date, y = seasonal)
       ) +
       ggtitle("Seasonal Decomposition for the past 1 year") +
       geom_vline(xintercept = as.numeric(lowest_time), color = "red", linetype = "dotted") +
-      annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), 
-               label = "Lowest Point of Year\nBest entry point", vjust = -10) +
       labs(x = "Time", y = "Seasonal Component") +
       scale_x_date(date_labels = "%b %Y", 
-                   date_breaks = "1 month",
-                   limits = as.Date(c('2024-01-01', '2024-12-31'))) +  # Format x-axis to show month and year
-      theme_minimal()
+                  date_breaks = "1 month",
+                  limits = c(min(seasonal_df$date), max(seasonal_df$date))) +
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+      )
     
-    plotly::ggplotly(s)
+    # Convert to plotly
+    ggplotly(p)
   })
   
   # Seasonal text
@@ -300,7 +300,7 @@ server <- function(input, output) {
     lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
     
     # Extract the month from the lowest time
-    mth = round((lowest_time %% 1) * 12) 
+    mth = round((lowest_time %% 1) * 12 + 1) 
     date = lowest_time
 
     # Create text
