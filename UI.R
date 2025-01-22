@@ -69,7 +69,7 @@ ui <-
                     tabPanel("Time-Series Analysis",
                             fluidRow(
                               column(12, 
-                                    plotOutput("seasonal_plot"))
+                                    plotlyOutput("seasonal_plot"))
                             ),
                             fluidRow(
                               column(12,
