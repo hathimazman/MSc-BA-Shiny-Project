@@ -251,26 +251,39 @@ server <- function(input, output) {
   })
   
   # Plot the seasonal data
-  output$seasonal_plot <- renderPlot({
-    # Create a seasonal data
+  output$seasonal_plot <- renderPlotly({
+    req(nrow(df_ts()) > 0)  # Ensure df_ts() has data
     seasonal_data <- decompose(df_ts())$seasonal
     
     # Create seasonal data frame
-    seasonal_df <- data.frame(time = as.numeric(time(seasonal_data)),
-                              seasonal = as.numeric(seasonal_data)) %>%
-      filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+    seasonal_df <- data.frame(
+      time = time(seasonal_data),
+      seasonal = as.numeric(seasonal_data)
+    )
+    
+    # Create a date sequence for the x-axis
+    seasonal_df$date <- seq(from = as.Date("2000-01-01"), by = "month", length.out = length(seasonal_df$seasonal))
     
     # Find the time corresponding to the lowest point of the seasonal component
-    lowest_time <- seasonal_df$time[which.min(seasonal_df$seasonal)]
+    lowest_time <- seasonal_df$date[which.min(seasonal_df$seasonal)]
     
     # Plot the seasonal data
-    autoplot(seasonal_data) +
+    s <- ggplot() +
+      geom_line(
+        data = seasonal_df,
+        aes(x = date, y = seasonal)
+      ) +
       ggtitle("Seasonal Decomposition for the past 1 year") +
-      xlim(c(year(Sys.Date()) - 1, year(Sys.Date()))) +  # Adjust the x-axis limits
-      geom_vline(xintercept = lowest_time, color = "red", linetype = "dotted") +  # Add vertical line +
-      annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), label = "Lowest Point of Year\nBest entry point", vjust = -10) +  # Add text annotation
+      geom_vline(xintercept = as.numeric(lowest_time), color = "red", linetype = "dotted") +
+      annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), 
+               label = "Lowest Point of Year\nBest entry point", vjust = -10) +
       labs(x = "Time", y = "Seasonal Component") +
+      scale_x_date(date_labels = "%b %Y", 
+                   date_breaks = "1 month",
+                   limits = as.Date(c('2024-01-01', '2024-12-31'))) +  # Format x-axis to show month and year
       theme_minimal()
+    
+    plotly::ggplotly(s)
   })
   
   # Seasonal text
