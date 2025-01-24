@@ -1,7 +1,5 @@
 library(tidyverse)
 library(forecast)
-library(mice)
-library(zoo)
 library(lubridate)
 library(yfR)
 library(plotly)
@@ -181,3 +179,80 @@ autoplot(trend_data) +
   labs(x = "Time", y = "Trend Component") +
   theme_minimal()
 
+
+# Create seasonal data frame
+seasonal_df <- data.frame(
+  time = time(seasonal_data),
+  seasonal = as.numeric(seasonal_data)
+) %>% filter(time >= (year(Sys.Date()) - 1) & time <= year(Sys.Date()))
+
+# Create a date sequence for the x-axis
+seasonal_df$date <- seq(from = as.Date("2024-01-01"), by = "month", length.out = length(seasonal_df$seasonal))
+
+# Find the time corresponding to the lowest point of the seasonal component
+lowest_time <- seasonal_df$date[which.min(seasonal_df$seasonal)]
+
+ggplot() +
+  geom_line(
+    data = seasonal_df,
+    aes(x = date, y = seasonal)
+  ) +
+  ggtitle("Seasonal Decomposition for the past 1 year") +
+  geom_vline(xintercept = as.numeric(lowest_time), color = "red", linetype = "dotted") +
+  annotate("text", x = lowest_time, y = min(seasonal_df$seasonal), 
+           label = "Lowest Point of Year\nBest entry point", vjust = -10) +
+  labs(x = "Time", y = "Seasonal Component") +
+  scale_x_date(date_labels = "%b %Y", 
+               date_breaks = "1 month",
+               limits = as.Date(c('2024-01-01', '2024-12-31'))) +  # Format x-axis to show month and year
+  theme_minimal()
+
+#==========================================================
+# Forecast Volume Data Frame
+forecast_volume <- data.frame(
+    date = seq(max(df$date) + months(1), by = "month", length.out = 12),
+    forecast = forecasted$volume
+  )
+  
+  forecast_data <- forecast_df %>% arrange(date) %>% distinct(date, .keep_all = TRUE)
+})
+# Volume Plot
+output$volume_plot <- renderPlotly({
+  # Create a volume plot
+  p <- ggplot() +
+    # Volume bar chart
+    geom_col(
+      data = df(),
+      aes(x = date, y = volume),
+      fill = "grey",
+      alpha = 0.5
+    ) +
+    # Forecast volume
+    geom_col(
+      data = forecast_volume(),
+      aes(x = date, y = forecast),
+      color = "blue",
+      alpha = 0.5
+    ) +
+    # Adjust y axis
+    scale_y_continuous(
+      name = "Volume"
+    ) +
+    # Set x-axis limits
+    scale_x_date(
+      name = "Date",
+      limits = as.Date(c(input$dateRange[1], input$dateRange[2])),
+      date_breaks = "6 month",
+      date_labels = "%b %Y"
+    ) +
+    # Additional customizations
+    labs(
+      title = "Monthly Volume Chart",
+      x = "Date"
+    ) +
+    # Theme
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    )
