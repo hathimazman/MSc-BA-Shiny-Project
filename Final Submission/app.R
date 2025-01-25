@@ -1,3 +1,11 @@
+# Install Required libraries
+install.packages('tidyverse')
+install.packages('forecast')
+install.packages('lubridate')
+install.packages('yfR')
+install.packages('plotly')
+install.packages('shiny')
+
 # Load Libraries
 library(tidyverse)
 library(forecast)
@@ -32,7 +40,7 @@ ui <-
             textOutput("stock_info"),
             br(),
             p("Further details on tickers can be obtained at:"), 
-            tags$a(href='https://finance.yahoo.com/lookup/', 'Yahoo Finance')),
+            tags$a(href='https://finance.yahoo.com/markets/world-indices/?guce_referrer=aHR0cHM6Ly9naXRodWIuY29tL3JvcGVuc2NpL3lmUg&guce_referrer_sig=AQAAAAviOKFwn0EbfBgcZmifeubXi_KnuezrMaHmWgCYFwP6SN4Z2736sUmr-RxVpc7tTOlYx9glnWlJyrw8EfEdE9aEzRkx1B1crppLCB6aWXCLoCvZPHuWCop52wGHPFcKo-r5kEF3ZdLJJs4pDhtYSSylUnhl55Nr34KQcMGfAo5O', 'Yahoo Finance')),
         br(),
         br(),
         radioButtons(inputId = "ts_algo", 
@@ -43,7 +51,7 @@ ui <-
         dateRangeInput(inputId = 'dateRange',
                       label = '3. Select date range to visualize \n (Select future dates to see forecast of price)',
                       start = '2000-01-01', 
-                      end = Sys.Date(),
+                      end = Sys.Date() + 365,
                       format = 'yyyy-mm',
                       startview = 'year'),
         sliderInput("integer", "4. How many months to forecast price?",
@@ -75,7 +83,9 @@ ui <-
                      tags$a(href = "https://github.com/hathimazman", "Hathim Azman", target = '_blank'),
                      br(),
                      tags$a(href = "https://github.com/Hazim-HF", "Hazim Fitri", target = '_blank')
-                 )
+                 ),
+                 br(),
+                 tags$a(href='https://github.com/ropensci/yfR', 'Link to yfR Package Documentation in Github.')
           )
         )
         
